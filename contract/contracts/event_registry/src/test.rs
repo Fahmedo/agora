@@ -1,6 +1,6 @@
 use super::*;
 use crate::error::EventRegistryError;
-use crate::types::{EventInfo, TicketTier};
+use crate::types::{EventInfo, EventRegistrationArgs, TicketTier};
 use soroban_sdk::{testutils::Address as _, Address, Env, Map, String};
 
 #[test]
@@ -129,6 +129,7 @@ fn test_storage_operations() {
         ),
         max_supply: 100,
         current_supply: 0,
+        milestone_plan: None,
         tiers,
     };
 
@@ -171,6 +172,7 @@ fn test_organizer_events_list() {
         ),
         max_supply: 50,
         current_supply: 0,
+        milestone_plan: None,
         tiers: tiers.clone(),
     };
 
@@ -187,6 +189,7 @@ fn test_organizer_events_list() {
         ),
         max_supply: 0,
         current_supply: 0,
+        milestone_plan: None,
         tiers,
     };
 
@@ -234,14 +237,15 @@ fn test_register_event_success() {
         },
     );
 
-    client.register_event(
-        &event_id,
-        &organizer,
-        &payment_addr,
-        &metadata_cid,
-        &100,
-        &tiers,
-    );
+    client.register_event(&EventRegistrationArgs {
+        event_id: event_id.clone(),
+        organizer_address: organizer,
+        payment_address: payment_addr.clone(),
+        metadata_cid,
+        max_supply: 100,
+        milestone_plan: None,
+        tiers,
+    });
 
     let payment_info = client.get_event_payment_info(&event_id);
     assert_eq!(payment_info.payment_address, payment_addr);
@@ -273,14 +277,15 @@ fn test_register_event_unlimited_supply() {
         "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",
     );
     let tiers = Map::new(&env);
-    client.register_event(
-        &event_id,
-        &organizer,
-        &payment_addr,
-        &metadata_cid,
-        &0,
-        &tiers,
-    );
+    client.register_event(&EventRegistrationArgs {
+        event_id: event_id.clone(),
+        organizer_address: organizer,
+        payment_address: payment_addr,
+        metadata_cid,
+        max_supply: 0,
+        milestone_plan: None,
+        tiers,
+    });
 
     let event_info = client.get_event(&event_id).unwrap();
     assert_eq!(event_info.max_supply, 0);
@@ -307,23 +312,25 @@ fn test_register_duplicate_event_fails() {
         "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",
     );
     let tiers = Map::new(&env);
-    client.register_event(
-        &event_id,
-        &organizer,
-        &payment_addr,
-        &metadata_cid,
-        &100,
-        &tiers,
-    );
+    client.register_event(&EventRegistrationArgs {
+        event_id: event_id.clone(),
+        organizer_address: organizer.clone(),
+        payment_address: payment_addr.clone(),
+        metadata_cid: metadata_cid.clone(),
+        max_supply: 100,
+        milestone_plan: None,
+        tiers: tiers.clone(),
+    });
 
-    let result = client.try_register_event(
-        &event_id,
-        &organizer,
-        &payment_addr,
-        &metadata_cid,
-        &100,
-        &tiers,
-    );
+    let result = client.try_register_event(&EventRegistrationArgs {
+        event_id,
+        organizer_address: organizer,
+        payment_address: payment_addr,
+        metadata_cid,
+        max_supply: 100,
+        milestone_plan: None,
+        tiers,
+    });
     assert_eq!(result, Err(Ok(EventRegistryError::EventAlreadyExists)));
 }
 
@@ -347,14 +354,15 @@ fn test_get_event_payment_info() {
         "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",
     );
     let tiers = Map::new(&env);
-    client.register_event(
-        &event_id,
-        &organizer,
-        &payment_addr,
-        &metadata_cid,
-        &50,
-        &tiers,
-    );
+    client.register_event(&EventRegistrationArgs {
+        event_id: event_id.clone(),
+        organizer_address: organizer,
+        payment_address: payment_addr.clone(),
+        metadata_cid,
+        max_supply: 50,
+        milestone_plan: None,
+        tiers,
+    });
 
     let info = client.get_event_payment_info(&event_id);
     assert_eq!(info.payment_address, payment_addr);
@@ -381,14 +389,15 @@ fn test_update_event_status() {
         "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",
     );
     let tiers = Map::new(&env);
-    client.register_event(
-        &event_id,
-        &organizer,
-        &payment_addr,
-        &metadata_cid,
-        &100,
-        &tiers,
-    );
+    client.register_event(&EventRegistrationArgs {
+        event_id: event_id.clone(),
+        organizer_address: organizer,
+        payment_address: payment_addr,
+        metadata_cid,
+        max_supply: 100,
+        milestone_plan: None,
+        tiers,
+    });
     client.update_event_status(&event_id, &false);
 
     let event_info = client.get_event(&event_id).unwrap();
@@ -414,14 +423,15 @@ fn test_event_inactive_error() {
         "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",
     );
     let tiers = Map::new(&env);
-    client.register_event(
-        &event_id,
-        &organizer,
-        &payment_addr,
-        &metadata_cid,
-        &100,
-        &tiers,
-    );
+    client.register_event(&EventRegistrationArgs {
+        event_id: event_id.clone(),
+        organizer_address: organizer,
+        payment_address: payment_addr,
+        metadata_cid,
+        max_supply: 100,
+        milestone_plan: None,
+        tiers,
+    });
     client.update_event_status(&event_id, &false);
 
     let result = client.try_get_event_payment_info(&event_id);
@@ -448,14 +458,15 @@ fn test_complete_event_lifecycle() {
         "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",
     );
     let tiers = Map::new(&env);
-    client.register_event(
-        &event_id,
-        &organizer,
-        &payment_addr,
-        &metadata_cid,
-        &200,
-        &tiers,
-    );
+    client.register_event(&EventRegistrationArgs {
+        event_id: event_id.clone(),
+        organizer_address: organizer.clone(),
+        payment_address: payment_addr.clone(),
+        metadata_cid,
+        max_supply: 200,
+        milestone_plan: None,
+        tiers,
+    });
 
     let payment_info = client.get_event_payment_info(&event_id);
     assert_eq!(payment_info.payment_address, payment_addr);
@@ -494,14 +505,15 @@ fn test_update_metadata_success() {
         "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",
     );
     let tiers = Map::new(&env);
-    client.register_event(
-        &event_id,
-        &organizer,
-        &payment_addr,
-        &metadata_cid,
-        &100,
-        &tiers,
-    );
+    client.register_event(&EventRegistrationArgs {
+        event_id: event_id.clone(),
+        organizer_address: organizer,
+        payment_address: payment_addr,
+        metadata_cid,
+        max_supply: 100,
+        milestone_plan: None,
+        tiers,
+    });
 
     let new_metadata_cid = String::from_str(
         &env,
@@ -533,14 +545,15 @@ fn test_update_metadata_invalid_cid() {
         "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",
     );
     let tiers = Map::new(&env);
-    client.register_event(
-        &event_id,
-        &organizer,
-        &payment_addr,
-        &metadata_cid,
-        &100,
-        &tiers,
-    );
+    client.register_event(&EventRegistrationArgs {
+        event_id: event_id.clone(),
+        organizer_address: organizer,
+        payment_address: payment_addr,
+        metadata_cid,
+        max_supply: 100,
+        milestone_plan: None,
+        tiers,
+    });
 
     let wrong_char_cid = String::from_str(
         &env,
@@ -613,14 +626,15 @@ fn test_increment_inventory_success() {
         },
     );
 
-    client.register_event(
-        &event_id,
-        &organizer,
-        &payment_addr,
-        &metadata_cid,
-        &10,
-        &tiers,
-    );
+    client.register_event(&EventRegistrationArgs {
+        event_id: event_id.clone(),
+        organizer_address: organizer,
+        payment_address: payment_addr,
+        metadata_cid,
+        max_supply: 10,
+        milestone_plan: None,
+        tiers,
+    });
 
     client.increment_inventory(&event_id, &tier_id);
 
@@ -674,14 +688,15 @@ fn test_increment_inventory_max_supply_exceeded() {
         },
     );
 
-    client.register_event(
-        &event_id,
-        &organizer,
-        &payment_addr,
-        &metadata_cid,
-        &2,
-        &tiers,
-    );
+    client.register_event(&EventRegistrationArgs {
+        event_id: event_id.clone(),
+        organizer_address: organizer,
+        payment_address: payment_addr,
+        metadata_cid,
+        max_supply: 2,
+        milestone_plan: None,
+        tiers,
+    });
 
     client.increment_inventory(&event_id, &tier_id);
     client.increment_inventory(&event_id, &tier_id);
@@ -730,14 +745,15 @@ fn test_increment_inventory_unlimited_supply() {
         },
     );
 
-    client.register_event(
-        &event_id,
-        &organizer,
-        &payment_addr,
-        &metadata_cid,
-        &0,
-        &tiers,
-    );
+    client.register_event(&EventRegistrationArgs {
+        event_id: event_id.clone(),
+        organizer_address: organizer,
+        payment_address: payment_addr,
+        metadata_cid,
+        max_supply: 0,
+        milestone_plan: None,
+        tiers,
+    });
 
     for _ in 0..10 {
         client.increment_inventory(&event_id, &tier_id);
@@ -803,14 +819,15 @@ fn test_increment_inventory_inactive_event() {
             is_refundable: true,
         },
     );
-    client.register_event(
-        &event_id,
-        &organizer,
-        &payment_addr,
-        &metadata_cid,
-        &100,
-        &tiers,
-    );
+    client.register_event(&EventRegistrationArgs {
+        event_id: event_id.clone(),
+        organizer_address: organizer,
+        payment_address: payment_addr,
+        metadata_cid,
+        max_supply: 100,
+        milestone_plan: None,
+        tiers,
+    });
 
     client.update_event_status(&event_id, &false);
 
@@ -852,14 +869,15 @@ fn test_increment_inventory_persists_across_reads() {
             is_refundable: true,
         },
     );
-    client.register_event(
-        &event_id,
-        &organizer,
-        &payment_addr,
-        &metadata_cid,
-        &50,
-        &tiers,
-    );
+    client.register_event(&EventRegistrationArgs {
+        event_id: event_id.clone(),
+        organizer_address: organizer,
+        payment_address: payment_addr,
+        metadata_cid,
+        max_supply: 50,
+        milestone_plan: None,
+        tiers,
+    });
 
     for _ in 0..5 {
         client.increment_inventory(&event_id, &tier_id);
@@ -917,14 +935,15 @@ fn test_tier_limit_exceeds_max_supply() {
         },
     );
 
-    let result = client.try_register_event(
-        &event_id,
-        &organizer,
-        &payment_addr,
-        &metadata_cid,
-        &100,
-        &tiers,
-    );
+    let result = client.try_register_event(&EventRegistrationArgs {
+        event_id: event_id.clone(),
+        organizer_address: organizer,
+        payment_address: payment_addr,
+        metadata_cid,
+        max_supply: 100,
+        milestone_plan: None,
+        tiers,
+    });
     assert_eq!(
         result,
         Err(Ok(EventRegistryError::TierLimitExceedsMaxSupply))
@@ -966,14 +985,15 @@ fn test_tier_not_found() {
         },
     );
 
-    client.register_event(
-        &event_id,
-        &organizer,
-        &payment_addr,
-        &metadata_cid,
-        &100,
-        &tiers,
-    );
+    client.register_event(&EventRegistrationArgs {
+        event_id: event_id.clone(),
+        organizer_address: organizer,
+        payment_address: payment_addr,
+        metadata_cid,
+        max_supply: 100,
+        milestone_plan: None,
+        tiers,
+    });
 
     let wrong_tier_id = String::from_str(&env, "nonexistent");
     let result = client.try_increment_inventory(&event_id, &wrong_tier_id);
@@ -1016,14 +1036,15 @@ fn test_tier_supply_exceeded() {
         },
     );
 
-    client.register_event(
-        &event_id,
-        &organizer,
-        &payment_addr,
-        &metadata_cid,
-        &100,
-        &tiers,
-    );
+    client.register_event(&EventRegistrationArgs {
+        event_id: event_id.clone(),
+        organizer_address: organizer,
+        payment_address: payment_addr,
+        metadata_cid,
+        max_supply: 100,
+        milestone_plan: None,
+        tiers,
+    });
 
     client.increment_inventory(&event_id, &tier_id);
     client.increment_inventory(&event_id, &tier_id);
@@ -1081,14 +1102,15 @@ fn test_multiple_tiers_inventory() {
         },
     );
 
-    client.register_event(
-        &event_id,
-        &organizer,
-        &payment_addr,
-        &metadata_cid,
-        &70,
-        &tiers,
-    );
+    client.register_event(&EventRegistrationArgs {
+        event_id: event_id.clone(),
+        organizer_address: organizer,
+        payment_address: payment_addr,
+        metadata_cid,
+        max_supply: 70,
+        milestone_plan: None,
+        tiers,
+    });
 
     client.increment_inventory(&event_id, &general_id);
     client.increment_inventory(&event_id, &general_id);
