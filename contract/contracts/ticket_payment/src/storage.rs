@@ -297,4 +297,34 @@ pub fn subtract_from_active_escrow_by_token(env: &Env, token: Address, amount: i
     env.storage()
         .persistent()
         .set(&DataKey::ActiveEscrowByToken(token), &(current - amount));
+// ── Discount code registry ────────────────────────────────────────────────────
+
+/// Register a SHA-256 hash as a valid (unused) discount code.
+pub fn add_discount_hash(env: &Env, hash: soroban_sdk::BytesN<32>) {
+    env.storage()
+        .persistent()
+        .set(&DataKey::DiscountCodeHash(hash), &true);
+}
+
+/// Returns `true` if the hash has been registered as a discount code.
+pub fn is_discount_hash_valid(env: &Env, hash: &soroban_sdk::BytesN<32>) -> bool {
+    env.storage()
+        .persistent()
+        .get(&DataKey::DiscountCodeHash(hash.clone()))
+        .unwrap_or(false)
+}
+
+/// Returns `true` if the hash has already been redeemed.
+pub fn is_discount_hash_used(env: &Env, hash: &soroban_sdk::BytesN<32>) -> bool {
+    env.storage()
+        .persistent()
+        .get(&DataKey::DiscountCodeUsed(hash.clone()))
+        .unwrap_or(false)
+}
+
+/// Mark a discount code hash as spent so it cannot be reused.
+pub fn mark_discount_hash_used(env: &Env, hash: soroban_sdk::BytesN<32>) {
+    env.storage()
+        .persistent()
+        .set(&DataKey::DiscountCodeUsed(hash), &true);
 }
