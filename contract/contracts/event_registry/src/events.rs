@@ -67,7 +67,6 @@ pub struct MetadataUpdatedEvent {
 pub struct InventoryIncrementedEvent {
     pub event_id: String,
     pub new_supply: i128,
-    pub max_supply: i128,
     pub timestamp: u64,
 }
 
@@ -76,6 +75,5 @@ pub struct InventoryIncrementedEvent {
 pub struct InventoryDecrementedEvent {
     pub event_id: String,
     pub new_supply: i128,
-    pub max_supply: i128,
     pub timestamp: u64,
 }

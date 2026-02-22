@@ -3,7 +3,7 @@ use super::storage::*;
 use super::types::{Payment, PaymentStatus};
 use crate::error::TicketPaymentError;
 use soroban_sdk::{
-    testutils::{Address as _, Events, Ledger},
+    testutils::{Address as _, EnvTestConfig, Events, Ledger},
     token, Address, Env, IntoVal, String, Symbol, TryIntoVal,
 };
 
@@ -1629,4 +1629,94 @@ fn test_bulk_refund_batching() {
     // Refund batch 3 (none left)
     let count3 = client.trigger_bulk_refund(&event_id, &2);
     assert_eq!(count3, 0);
+}
+
+#[test]
+fn test_protocol_revenue_reporting_views() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let (client, _admin, usdc_id, _platform_wallet, _) = setup_test(&env);
+    let usdc_token = token::StellarAssetClient::new(&env, &usdc_id);
+
+    let buyer = Address::generate(&env);
+    let amount = 1000_0000000i128;
+    let event_id = String::from_str(&env, "event_1");
+    let tier_id = String::from_str(&env, "tier_1");
+
+    usdc_token.mint(&buyer, &amount);
+    token::Client::new(&env, &usdc_id).approve(&buyer, &client.address, &amount, &99999);
+
+    client.process_payment(
+        &String::from_str(&env, "metrics_p1"),
+        &event_id,
+        &tier_id,
+        &buyer,
+        &usdc_id,
+        &amount,
+        &1,
+    );
+
+    let expected_fee = (amount * 500) / 10000;
+    let expected_organizer = amount - expected_fee;
+
+    assert_eq!(client.get_total_volume_processed(), amount);
+    assert_eq!(client.get_total_fees_collected(&usdc_id), expected_fee);
+    assert_eq!(client.get_active_escrow_total(), amount);
+    assert_eq!(client.get_active_escrow_total_by_token(&usdc_id), amount);
+
+    let withdrawn_fee = client.withdraw_platform_fees(&event_id, &usdc_id);
+    assert_eq!(withdrawn_fee, expected_fee);
+    assert_eq!(client.get_active_escrow_total(), expected_organizer);
+    assert_eq!(
+        client.get_active_escrow_total_by_token(&usdc_id),
+        expected_organizer
+    );
+
+    let withdrawn_org = client.withdraw_organizer_funds(&event_id, &usdc_id);
+    assert_eq!(withdrawn_org, expected_organizer);
+    assert_eq!(client.get_active_escrow_total(), 0);
+    assert_eq!(client.get_active_escrow_total_by_token(&usdc_id), 0);
+
+    // Fees are cumulative reporting metrics and should not decrease on withdrawal.
+    assert_eq!(client.get_total_fees_collected(&usdc_id), expected_fee);
+}
+
+#[test]
+fn test_gas_profile_process_payment_budget() {
+    let env = Env::new_with_config(EnvTestConfig {
+        capture_snapshot_at_drop: false,
+    });
+    env.mock_all_auths();
+
+    let mut pre_budget = env.cost_estimate().budget();
+    pre_budget.reset_default();
+
+    let (client, _admin, usdc_id, _platform_wallet, _) = setup_test(&env);
+    let usdc_token = token::StellarAssetClient::new(&env, &usdc_id);
+
+    let buyer = Address::generate(&env);
+    let amount = 1000_0000000i128;
+    usdc_token.mint(&buyer, &amount);
+    token::Client::new(&env, &usdc_id).approve(&buyer, &client.address, &amount, &99999);
+
+    client.process_payment(
+        &String::from_str(&env, "gas_prof_pay"),
+        &String::from_str(&env, "event_1"),
+        &String::from_str(&env, "tier_1"),
+        &buyer,
+        &usdc_id,
+        &amount,
+        &1,
+    );
+
+    let post_budget = env.cost_estimate().budget();
+    let cpu = post_budget.cpu_instruction_cost();
+    let mem = post_budget.memory_bytes_cost();
+    soroban_sdk::log!(&env, "process_payment budget cpu={} mem={}", cpu, mem);
+
+    assert!(cpu > 0);
+    assert!(mem > 0);
+    // Regression guardrail to catch major accidental gas increases.
+    assert!(cpu < 150_000_000);
 }
