@@ -1,14 +1,14 @@
 use crate::storage::{
-    add_discount_hash, add_payment_to_buyer_index,
-    add_to_active_escrow_by_token, add_to_active_escrow_total,
-    add_to_total_fees_collected_by_token, add_to_total_volume_processed, add_token_to_whitelist,
-    get_admin, get_bulk_refund_index, get_event_balance, get_event_payments, get_event_registry,
-    get_payment, get_platform_wallet, get_transfer_fee, has_price_switched, is_discount_hash_used,
-    is_discount_hash_valid, is_initialized, is_token_whitelisted, mark_discount_hash_used,
-    remove_payment_from_buyer_index, remove_token_from_whitelist, set_admin, set_bulk_refund_index,
-    set_event_registry, set_initialized, set_platform_wallet, set_price_switched, set_transfer_fee,
-    set_usdc_token, store_payment, subtract_from_active_escrow_by_token,
-    subtract_from_active_escrow_total, update_event_balance,
+    add_discount_hash, add_payment_to_buyer_index, add_to_active_escrow_by_token,
+    add_to_active_escrow_total, add_to_total_fees_collected_by_token,
+    add_to_total_volume_processed, add_token_to_whitelist, get_admin, get_bulk_refund_index,
+    get_event_balance, get_event_payments, get_event_registry, get_payment, get_platform_wallet,
+    get_transfer_fee, has_price_switched, is_discount_hash_used, is_discount_hash_valid,
+    is_initialized, is_token_whitelisted, mark_discount_hash_used, remove_payment_from_buyer_index,
+    remove_token_from_whitelist, set_admin, set_bulk_refund_index, set_event_registry,
+    set_initialized, set_platform_wallet, set_price_switched, set_transfer_fee, set_usdc_token,
+    store_payment, subtract_from_active_escrow_by_token, subtract_from_active_escrow_total,
+    update_event_balance,
 };
 use crate::types::{Payment, PaymentStatus};
 use crate::{
@@ -19,9 +19,7 @@ use crate::{
         TicketTransferredEvent,
     },
 };
-use soroban_sdk::{
-    contract, contractimpl, token, Address, Bytes, BytesN, Env, String, Vec,
-};
+use soroban_sdk::{contract, contractimpl, token, Address, Bytes, BytesN, Env, String, Vec};
 
 // Event Registry interface
 pub mod event_registry {

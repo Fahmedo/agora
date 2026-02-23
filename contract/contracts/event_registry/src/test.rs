@@ -1161,11 +1161,9 @@ fn test_update_event_status_noop_skips_event() {
         tiers,
     });
 
-    let before = env.events().all().len();
+    let _ = env.events().all();
     client.update_event_status(&event_id, &true);
-    let after = env.events().all().len();
-
-    assert_eq!(after, before);
+    assert_eq!(env.events().all().len(), 0);
 }
 
 #[test]
@@ -1266,11 +1264,9 @@ fn test_update_metadata_noop_skips_event() {
         tiers,
     });
 
-    let before = env.events().all().len();
+    let _ = env.events().all();
     client.update_metadata(&event_id, &metadata_cid);
-    let after = env.events().all().len();
-
-    assert_eq!(after, before);
+    assert_eq!(env.events().all().len(), 0);
 }
 
 #[test]
