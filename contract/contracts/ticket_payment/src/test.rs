@@ -4,8 +4,7 @@ use super::types::{Payment, PaymentStatus};
 use crate::error::TicketPaymentError;
 use soroban_sdk::{
     testutils::{Address as _, EnvTestConfig, Events, Ledger},
-    token, token, Address, Address, Bytes, Env, Env, IntoVal, IntoVal, String, String, Symbol,
-    Symbol, TryIntoVal, TryIntoVal,
+    token, Address, Bytes, Env, IntoVal, String, Symbol, TryIntoVal,
 };
 
 // Mock Event Registry Contract

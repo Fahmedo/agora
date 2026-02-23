@@ -1258,7 +1258,7 @@ fn test_update_metadata_noop_skips_event() {
     let tiers = Map::new(&env);
     client.register_event(&EventRegistrationArgs {
         event_id: event_id.clone(),
-        organizer_address: organizer,
+        organizer_address: organizer.clone(),
         payment_address: payment_addr,
         metadata_cid: metadata_cid.clone(),
         max_supply: 100,
@@ -1334,7 +1334,7 @@ fn test_blacklist_suspends_active_events() {
     let tiers = Map::new(&env);
     client.register_event(&EventRegistrationArgs {
         event_id: event_id.clone(),
-        organizer_address: organizer,
+        organizer_address: organizer.clone(),
         payment_address: payment_addr,
         metadata_cid: metadata_cid.clone(),
         max_supply: 100,
