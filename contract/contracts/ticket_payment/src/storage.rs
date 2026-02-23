@@ -297,6 +297,8 @@ pub fn subtract_from_active_escrow_by_token(env: &Env, token: Address, amount: i
     env.storage()
         .persistent()
         .set(&DataKey::ActiveEscrowByToken(token), &(current - amount));
+}
+
 // ── Discount code registry ────────────────────────────────────────────────────
 
 /// Register a SHA-256 hash as a valid (unused) discount code.

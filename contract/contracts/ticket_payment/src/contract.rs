@@ -1,19 +1,20 @@
 use crate::storage::{
-    add_payment_to_buyer_index, add_to_active_escrow_by_token, add_to_active_escrow_total,
+    add_discount_hash, add_payment_to_buyer_index, add_payment_to_buyer_index,
+    add_to_active_escrow_by_token, add_to_active_escrow_total,
     add_to_total_fees_collected_by_token, add_to_total_volume_processed, add_token_to_whitelist,
-    get_admin, get_bulk_refund_index, get_event_balance, get_event_payments, get_event_registry,
-    get_payment, get_platform_wallet, get_transfer_fee, has_price_switched, is_initialized,
-    is_token_whitelisted, remove_payment_from_buyer_index, remove_token_from_whitelist, set_admin,
-    set_bulk_refund_index, set_event_registry, set_initialized, set_platform_wallet,
-    set_price_switched, set_transfer_fee, set_usdc_token, store_payment,
-    subtract_from_active_escrow_by_token, subtract_from_active_escrow_total, update_event_balance,
-    add_discount_hash, add_payment_to_buyer_index, add_token_to_whitelist, get_admin,
-    get_bulk_refund_index, get_event_balance, get_event_payments, get_event_registry, get_payment,
-    get_platform_wallet, get_transfer_fee, is_discount_hash_used, is_discount_hash_valid,
-    is_initialized, is_token_whitelisted, mark_discount_hash_used, remove_payment_from_buyer_index,
-    remove_token_from_whitelist, set_admin, set_bulk_refund_index, set_event_registry,
-    set_initialized, set_platform_wallet, set_transfer_fee, set_usdc_token, store_payment,
-    update_event_balance, update_payment_status,
+    add_token_to_whitelist, get_admin, get_admin, get_bulk_refund_index, get_bulk_refund_index,
+    get_event_balance, get_event_balance, get_event_payments, get_event_payments,
+    get_event_registry, get_event_registry, get_payment, get_payment, get_platform_wallet,
+    get_platform_wallet, get_transfer_fee, get_transfer_fee, has_price_switched,
+    is_discount_hash_used, is_discount_hash_valid, is_initialized, is_initialized,
+    is_token_whitelisted, is_token_whitelisted, mark_discount_hash_used,
+    remove_payment_from_buyer_index, remove_payment_from_buyer_index, remove_token_from_whitelist,
+    remove_token_from_whitelist, set_admin, set_admin, set_bulk_refund_index,
+    set_bulk_refund_index, set_event_registry, set_event_registry, set_initialized,
+    set_initialized, set_platform_wallet, set_platform_wallet, set_price_switched,
+    set_transfer_fee, set_transfer_fee, set_usdc_token, set_usdc_token, store_payment,
+    store_payment, subtract_from_active_escrow_by_token, subtract_from_active_escrow_total,
+    update_event_balance, update_event_balance, update_payment_status,
 };
 use crate::types::{Payment, PaymentStatus};
 use crate::{
@@ -24,10 +25,10 @@ use crate::{
         TicketTransferredEvent,
     },
 };
-use soroban_sdk::{contract, contractimpl, token, Address, BytesN, Env, String};
 use soroban_sdk::{
     contract, contractimpl, token, Address, Bytes, BytesN, Env, String, Symbol, Vec,
 };
+use soroban_sdk::{contract, contractimpl, token, Address, BytesN, Env, String};
 
 // Event Registry interface
 pub mod event_registry {
@@ -268,13 +269,6 @@ impl TicketPaymentContract {
         if tier.early_bird_deadline > 0 && current_time > tier.early_bird_deadline {
             if !has_price_switched(&env, event_id.clone(), ticket_tier_id.clone()) {
                 set_price_switched(&env, event_id.clone(), ticket_tier_id.clone());
-            let switch_key = Symbol::new(
-                &env,
-                alloc::format!("ps_{}_{}", event_id, ticket_tier_id).as_str(),
-            );
-            let has_switched: bool = env.storage().persistent().get(&switch_key).unwrap_or(false);
-            if !has_switched {
-                env.storage().persistent().set(&switch_key, &true);
                 #[allow(deprecated)]
                 env.events().publish(
                     (AgoraEvent::PriceSwitched,),
@@ -840,6 +834,8 @@ impl TicketPaymentContract {
     /// Active escrow liquidity for a specific token.
     pub fn get_active_escrow_total_by_token(env: Env, token_address: Address) -> i128 {
         crate::storage::get_active_escrow_by_token(&env, token_address)
+    }
+
     /// Allows an event organizer to register a list of SHA-256 hashed discount codes.
     /// When a buyer provides the raw preimage during `process_payment`, the contract hashes
     /// it on-chain, validates against this registry, applies a 10% discount, and marks

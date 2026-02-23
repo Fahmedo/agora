@@ -4,8 +4,8 @@ use super::types::{Payment, PaymentStatus};
 use crate::error::TicketPaymentError;
 use soroban_sdk::{
     testutils::{Address as _, EnvTestConfig, Events, Ledger},
-    token, Address, Env, IntoVal, String, Symbol, TryIntoVal,
-    token, Address, Bytes, Env, IntoVal, String, Symbol, TryIntoVal,
+    token, token, Address, Address, Bytes, Env, Env, IntoVal, IntoVal, String, String, Symbol,
+    Symbol, TryIntoVal, TryIntoVal,
 };
 
 // Mock Event Registry Contract
@@ -1706,11 +1706,40 @@ fn test_protocol_revenue_reporting_views() {
         &String::from_str(&env, "metrics_p1"),
         &event_id,
         &tier_id,
+        &buyer,
+        &usdc_id,
+        &amount,
+        &1,
+        &None,
+        &None,
+    );
+
+    let expected_fee = (amount * 500) / 10000;
+    let expected_organizer = amount - expected_fee;
+
+    assert_eq!(client.get_total_volume_processed(), amount);
+    assert_eq!(client.get_total_fees_collected(&usdc_id), expected_fee);
+    assert_eq!(client.get_active_escrow_total(), amount);
+    assert_eq!(client.get_active_escrow_total_by_token(&usdc_id), amount);
+
+    let withdrawn_fee = client.withdraw_platform_fees(&event_id, &usdc_id);
+    assert_eq!(withdrawn_fee, expected_fee);
+    assert_eq!(client.get_active_escrow_total(), expected_organizer);
+    assert_eq!(
+        client.get_active_escrow_total_by_token(&usdc_id),
+        expected_organizer
+    );
+
+    let withdrawn_org = client.withdraw_organizer_funds(&event_id, &usdc_id);
+    assert_eq!(withdrawn_org, expected_organizer);
+    assert_eq!(client.get_active_escrow_total(), 0);
+    assert_eq!(client.get_active_escrow_total_by_token(&usdc_id), 0);
+
+    assert_eq!(client.get_total_fees_collected(&usdc_id), expected_fee);
+}
+
 // ── Discount Code Tests ────────────────────────────────────────────────────────
 
-/// A mock event registry that returns a *fixed*, predictable organizer address
-/// stored in instance storage. This lets tests call `add_discount_hashes` with
-/// the correct signer.
 #[soroban_sdk::contract]
 pub struct MockEventRegistryWithOrganizer;
 
@@ -1773,8 +1802,6 @@ impl MockEventRegistryWithOrganizer {
     pub fn decrement_inventory(_env: Env, _event_id: String, _tier_id: String) {}
 }
 
-/// Helper: set up a payment contract wired to MockEventRegistryWithOrganizer.
-/// Returns (client, organizer, registry_id, usdc_id).
 fn setup_discount_test(
     env: &Env,
 ) -> (
@@ -1786,9 +1813,7 @@ fn setup_discount_test(
     let organizer = Address::generate(env);
     let registry_id = env.register(MockEventRegistryWithOrganizer, ());
 
-    // Store the organizer address inside the mock registry
     env.mock_all_auths();
-    // Simpler approach: invoke set_organizer via env.as_contract
     env.as_contract(&registry_id, || {
         env.storage()
             .instance()
@@ -1817,13 +1842,10 @@ fn test_add_discount_hashes_and_invalid_code_rejected() {
     let (client, _organizer, _registry_id, usdc_id) = setup_discount_test(&env);
 
     let event_id = String::from_str(&env, "event_1");
-
-    // Register one hash: sha256("SUMMER10")
     let preimage = Bytes::from_slice(&env, b"SUMMER10");
     let valid_hash: soroban_sdk::BytesN<32> = env.crypto().sha256(&preimage).into();
     client.add_discount_hashes(&event_id, &soroban_sdk::vec![&env, valid_hash]);
 
-    // An unregistered code should be rejected
     let buyer = Address::generate(&env);
     let amount = 10_000_000_000_i128;
     token::StellarAssetClient::new(&env, &usdc_id).mint(&buyer, &amount);
@@ -1838,31 +1860,11 @@ fn test_add_discount_hashes_and_invalid_code_rejected() {
         &usdc_id,
         &amount,
         &1,
+        &Some(wrong_preimage),
+        &None,
     );
 
-    let expected_fee = (amount * 500) / 10000;
-    let expected_organizer = amount - expected_fee;
-
-    assert_eq!(client.get_total_volume_processed(), amount);
-    assert_eq!(client.get_total_fees_collected(&usdc_id), expected_fee);
-    assert_eq!(client.get_active_escrow_total(), amount);
-    assert_eq!(client.get_active_escrow_total_by_token(&usdc_id), amount);
-
-    let withdrawn_fee = client.withdraw_platform_fees(&event_id, &usdc_id);
-    assert_eq!(withdrawn_fee, expected_fee);
-    assert_eq!(client.get_active_escrow_total(), expected_organizer);
-    assert_eq!(
-        client.get_active_escrow_total_by_token(&usdc_id),
-        expected_organizer
-    );
-
-    let withdrawn_org = client.withdraw_organizer_funds(&event_id, &usdc_id);
-    assert_eq!(withdrawn_org, expected_organizer);
-    assert_eq!(client.get_active_escrow_total(), 0);
-    assert_eq!(client.get_active_escrow_total_by_token(&usdc_id), 0);
-
-    // Fees are cumulative reporting metrics and should not decrease on withdrawal.
-    assert_eq!(client.get_total_fees_collected(&usdc_id), expected_fee);
+    assert_eq!(res, Err(Ok(TicketPaymentError::InvalidDiscountCode)));
 }
 
 #[test]
@@ -1885,10 +1887,24 @@ fn test_gas_profile_process_payment_budget() {
 
     client.process_payment(
         &String::from_str(&env, "gas_prof_pay"),
-        &Some(wrong_preimage),
+        &String::from_str(&env, "event_1"),
+        &String::from_str(&env, "tier_1"),
+        &buyer,
+        &usdc_id,
+        &amount,
+        &1,
+        &None,
         &None,
     );
-    assert_eq!(res, Err(Ok(TicketPaymentError::InvalidDiscountCode)));
+
+    let post_budget = env.cost_estimate().budget();
+    let cpu = post_budget.cpu_instruction_cost();
+    let mem = post_budget.memory_bytes_cost();
+    soroban_sdk::log!(&env, "process_payment budget cpu={} mem={}", cpu, mem);
+
+    assert!(cpu > 0);
+    assert!(mem > 0);
+    assert!(cpu < 150_000_000);
 }
 
 #[test]
@@ -1905,9 +1921,8 @@ fn test_process_payment_with_valid_discount_code() {
 
     let buyer = Address::generate(&env);
     let full_amount = 10_000_000_000_i128;
-    let discounted_amount = full_amount * 90 / 100; // 10% off
+    let discounted_amount = full_amount * 90 / 100;
 
-    // Fund with only what the discounted price requires
     token::StellarAssetClient::new(&env, &usdc_id).mint(&buyer, &discounted_amount);
     token::Client::new(&env, &usdc_id).approve(&buyer, &client.address, &discounted_amount, &99999);
 
@@ -1924,8 +1939,6 @@ fn test_process_payment_with_valid_discount_code() {
     );
     assert_eq!(result, String::from_str(&env, "pay_1"));
 
-    // Verify final escrow
-    // platform_fee = 5% of discounted_amount (9_000_000_000) = 450_000_000
     let escrow = client.get_event_escrow_balance(&event_id);
     assert_eq!(escrow.platform_fee, 450_000_000);
 }
@@ -1943,14 +1956,12 @@ fn test_discount_code_one_time_use() {
     client.add_discount_hashes(&event_id, &soroban_sdk::vec![&env, valid_hash]);
 
     let buyer = Address::generate(&env);
-    let full_amount = 10_000_000_000_i128; // 1000 USDC
+    let full_amount = 10_000_000_000_i128;
     let discounted = full_amount * 90 / 100;
 
-    // Fund enough for two discounted purchases
     token::StellarAssetClient::new(&env, &usdc_id).mint(&buyer, &(discounted * 2));
     token::Client::new(&env, &usdc_id).approve(&buyer, &client.address, &(discounted * 2), &99999);
 
-    // First use – should succeed
     client.process_payment(
         &String::from_str(&env, "pay_first"),
         &event_id,
@@ -1963,7 +1974,6 @@ fn test_discount_code_one_time_use() {
         &None,
     );
 
-    // Second use of the same code – must fail
     let res = client.try_process_payment(
         &String::from_str(&env, "pay_second"),
         &event_id,
@@ -1980,14 +1990,13 @@ fn test_discount_code_one_time_use() {
 
 #[test]
 fn test_process_payment_no_code_unchanged() {
-    // Verify that passing None leaves the pricing completely untouched (regression guard).
     let env = Env::default();
     env.mock_all_auths();
 
     let (client, _organizer, _registry_id, usdc_id) = setup_discount_test(&env);
 
     let buyer = Address::generate(&env);
-    let amount = 1000_0000000i128; // 1000 USDC
+    let amount = 1000_0000000i128;
     token::StellarAssetClient::new(&env, &usdc_id).mint(&buyer, &amount);
     token::Client::new(&env, &usdc_id).approve(&buyer, &client.address, &amount, &99999);
 
@@ -1999,19 +2008,6 @@ fn test_process_payment_no_code_unchanged() {
         &usdc_id,
         &amount,
         &1,
-<<<<<<< main
-    );
-
-    let post_budget = env.cost_estimate().budget();
-    let cpu = post_budget.cpu_instruction_cost();
-    let mem = post_budget.memory_bytes_cost();
-    soroban_sdk::log!(&env, "process_payment budget cpu={} mem={}", cpu, mem);
-
-    assert!(cpu > 0);
-    assert!(mem > 0);
-    // Regression guardrail to catch major accidental gas increases.
-    assert!(cpu < 150_000_000);
-=======
         &None,
         &None,
     );
@@ -2020,5 +2016,4 @@ fn test_process_payment_no_code_unchanged() {
     let expected_fee = (amount * 500) / 10000;
     assert_eq!(escrow.platform_fee, expected_fee);
     assert_eq!(escrow.organizer_amount, amount - expected_fee);
->>>>>>> main
 }
