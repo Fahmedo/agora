@@ -1734,7 +1734,9 @@ fn test_protocol_revenue_reporting_views() {
     assert_eq!(client.get_active_escrow_total(), 0);
     assert_eq!(client.get_active_escrow_total_by_token(&usdc_id), 0);
 
+
     // Fees are cumulative reporting metrics and should not decrease on withdrawal.
+
     assert_eq!(client.get_total_fees_collected(&usdc_id), expected_fee);
 }
 
@@ -1863,6 +1865,7 @@ fn test_add_discount_hashes_and_invalid_code_rejected() {
         &Some(wrong_preimage),
         &None,
     );
+
     assert_eq!(res, Err(Ok(TicketPaymentError::InvalidDiscountCode)));
 }
 
